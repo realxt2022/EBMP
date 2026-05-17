@@ -125,6 +125,6 @@ def after_request(response):
     return response
 
 if __name__ == '__main__':
-    app.run(debug=True)
-    app.run(host='192.168.5.3', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
 
