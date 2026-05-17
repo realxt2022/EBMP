@@ -1,0 +1,10 @@
+Flask
+deepface
+opencv-python
+tensorflow
+numpy
+pandas
+mtcnn
+gdown
+tqdm
+pillow
