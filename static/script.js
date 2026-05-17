@@ -21,12 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
   detectBtn.addEventListener('click', async () => {
     try {
       // Call the backend to detect emotion
-      const response = await fetch('/detect_emotion');
+      const response = await fetch('/get_emotion');
       const data = await response.json();
 
       if (data.emotion) {
-        currentEmotion = data.emotion;
-        emotionBox.innerText = `${currentEmotion.charAt(0).toUpperCase() + currentEmotion.slice(1)} 😃`;
+        currentEmotion = data.emotion.toLowerCase();
+        const displayEmotion = currentEmotion.charAt(0).toUpperCase() + currentEmotion.slice(1);
+        emotionBox.innerText = `${displayEmotion} 😃`;
         playSong(currentEmotion);
       } else {
         emotionBox.innerText = 'Unable to detect emotion. Please try again.';
@@ -39,13 +40,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function playSong(emotion) {
     const songList = songs[emotion];
-    if (songList && songList.length > 0) {
-      currentSong = 0; // Reset to first song of the emotion
-      audioPlayer.src = `static/songs/${emotion}/${songList[currentSong]}`;
-      nowPlaying.innerText = `🎵 ${songList[currentSong]}`;
-      audioPlayer.play();
-      isPlaying = true;
+    if (!songList || songList.length === 0) {
+      emotionBox.innerText = 'No songs found for this emotion.';
+      return;
     }
+
+    currentSong = 0; // Reset to first song of the emotion
+    audioPlayer.src = `/static/songs/${emotion}/${songList[currentSong]}`;
+    nowPlaying.innerText = `🎵 ${songList[currentSong]}`;
+    audioPlayer.play();
+    isPlaying = true;
   }
 
   playPauseBtn.addEventListener('click', () => {
@@ -62,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
   prevBtn.addEventListener('click', () => {
     if (currentSong > 0) {
       currentSong--;
-      audioPlayer.src = `static/songs/${currentEmotion}/${songs[currentEmotion][currentSong]}`;
+      audioPlayer.src = `/static/songs/${currentEmotion}/${songs[currentEmotion][currentSong]}`;
       nowPlaying.innerText = `🎵 ${songs[currentEmotion][currentSong]}`;
       audioPlayer.play();
     }
@@ -71,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
   nextBtn.addEventListener('click', () => {
     if (currentSong < songs[currentEmotion].length - 1) {
       currentSong++;
-      audioPlayer.src = `static/songs/${currentEmotion}/${songs[currentEmotion][currentSong]}`;
+      audioPlayer.src = `/static/songs/${currentEmotion}/${songs[currentEmotion][currentSong]}`;
       nowPlaying.innerText = `🎵 ${songs[currentEmotion][currentSong]}`;
       audioPlayer.play();
     }

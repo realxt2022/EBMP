@@ -111,12 +111,12 @@ def get_emotion_webcam():
     if not song:
         return jsonify({"error": f"🎵 No songs found for '{detected_emotion}' mood."})
 
-    # Ensure the correct path is sent
+    detected_emotion_key = detected_emotion.lower()
     return jsonify({
         "emotion": detected_emotion,
         "emoji": emotion_emojis.get(detected_emotion, ""),
         "song": song,
-        "path": f"{detected_emotion}/{song}"  # Only send the relative path
+        "path": f"songs/{detected_emotion_key}/{song}"
     })
 
 @app.after_request
