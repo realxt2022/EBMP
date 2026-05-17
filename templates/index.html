@@ -432,10 +432,10 @@
     const themeToggle = document.getElementById("theme-toggle");
 
     const songs = {
-      happy: ["happy1.mp3", "happy2.mp3", "happy3.mp3"],
-      sad: ["sad1.mp3", "sad2.mp3", "sad3.mp3"],
-      angry: ["angry1.mp3", "angry2.mp3", "angry3.mp3"],
-      relaxed: ["relaxed1.mp3", "relaxed2.mp3", "relaxed3.mp3"]
+      happy: ["happy1.mp3", "happy2.m4a"],
+      sad: ["sad1.mp3", "sad2.m4a", "sad3.m4a", "sad4.mp3", "sad5.mp3", "sad6.mp3", "sad7.mp3"],
+      angry: ["angry1.mp3", "angry2.mp3"],
+      relaxed: ["neutral1.mp3", "neutral2.mp3", "neutral3.mp3", "neutral4.mp3", "neutral5.mp3", "neutral6.mp3"]
     };
 
     const showWebcamButton = document.getElementById("show-webcam-button");
@@ -781,19 +781,35 @@
       audioPlayer.volume = volumeSlider.value;
     });
 
+    // Update total time when metadata is loaded
+    audioPlayer.addEventListener("loadedmetadata", () => {
+      if (!isFinite(audioPlayer.duration) || audioPlayer.duration <= 0) return;
+      const totalMinutes = Math.floor(audioPlayer.duration / 60);
+      const totalSeconds = Math.floor(audioPlayer.duration % 60);
+      const totalTimeSpan = document.getElementById("total-time");
+      totalTimeSpan.innerText = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+    });
+
     audioPlayer.addEventListener("timeupdate", () => {
+      if (!isFinite(audioPlayer.duration) || audioPlayer.duration <= 0) return;
       const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
       progressBar.style.width = `${progress}%`;
 
       // Update current time and total time
       const currentTimeSpan = document.getElementById("current-time");
       const totalTimeSpan = document.getElementById("total-time");
-      const currentMinutes = Math.floor(audioPlayer.currentTime / 60);
-      const currentSeconds = Math.floor(audioPlayer.currentTime % 60);
-      const totalMinutes = Math.floor(audioPlayer.duration / 60);
-      const totalSeconds = Math.floor(audioPlayer.duration % 60);
+      const currentMinutes = Math.floor(audioPlayer.currentTime / 60) || 0;
+      const currentSeconds = Math.floor(audioPlayer.currentTime % 60) || 0;
+      const totalMinutes = Math.floor(audioPlayer.duration / 60) || 0;
+      const totalSeconds = Math.floor(audioPlayer.duration % 60) || 0;
       currentTimeSpan.innerText = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')}`;
       totalTimeSpan.innerText = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+    });
+
+    audioPlayer.addEventListener("error", () => {
+      showToast("Failed to load audio.");
+      document.getElementById("music-player").classList.add("hidden");
+      isPlaying = false;
     });
 
     const progressContainer = document.querySelector(".progress-container");
@@ -803,6 +819,7 @@
       const containerWidth = progressContainer.offsetWidth; // Get the width of the progress bar container
       const clickX = e.offsetX; // Get the X-coordinate of the click relative to the container
       const duration = audioPlayer.duration; // Get the total duration of the song
+      if (!isFinite(duration) || duration <= 0) return;
 
       // Calculate the new playback time based on the click position
       const newTime = (clickX / containerWidth) * duration;

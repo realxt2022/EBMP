@@ -11,10 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let isPlaying = false;
   let currentEmotion = '';
   let songs = {
-    'happy': ['happy1.mp3', 'happy2.mp3', 'happy3.mp3'],
-    'sad': ['sad1.mp3', 'sad2.mp3', 'sad3.mp3'],
-    'relaxed': ['relaxed1.mp3', 'relaxed2.mp3', 'relaxed3.mp3'],
-    'angry': ['angry1.mp3', 'angry2.mp3', 'angry3.mp3']
+    'happy': ['happy1.mp3', 'happy2.m4a'],
+    'sad': ['sad1.mp3', 'sad2.m4a', 'sad3.m4a', 'sad4.mp3', 'sad5.mp3', 'sad6.mp3', 'sad7.mp3'],
+    'relaxed': ['neutral1.mp3', 'neutral2.mp3', 'neutral3.mp3', 'neutral4.mp3', 'neutral5.mp3', 'neutral6.mp3'],
+    'angry': ['angry1.mp3', 'angry2.mp3']
   };
   let currentSong = 0;
 
