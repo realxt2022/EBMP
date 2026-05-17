@@ -432,10 +432,10 @@
     const themeToggle = document.getElementById("theme-toggle");
 
     const songs = {
-      Happy: ["happy1.mp3", "happy2.mp3", "happy3.mp3"],
-      Sad: ["sad1.mp3", "sad2.mp3", "sad3.mp3"],
-      Angry: ["angry1.mp3", "angry2.mp3", "angry3.mp3"],
-      Relaxed: ["relaxed1.mp3", "relaxed2.mp3", "relaxed3.mp3"]
+      happy: ["happy1.mp3", "happy2.mp3", "happy3.mp3"],
+      sad: ["sad1.mp3", "sad2.mp3", "sad3.mp3"],
+      angry: ["angry1.mp3", "angry2.mp3", "angry3.mp3"],
+      relaxed: ["relaxed1.mp3", "relaxed2.mp3", "relaxed3.mp3"]
     };
 
     const showWebcamButton = document.getElementById("show-webcam-button");
@@ -639,16 +639,17 @@
         }
 
         const emojiMap = {
-          Happy: "😄",
-          Sad: "😢",
-          Angry: "😡",
-          Relaxed: "😌",
-          Neutral: "🙂",
+          happy: "😄",
+          sad: "😢",
+          angry: "😡",
+          relaxed: "😌",
+          neutral: "🙂",
         };
 
-        currentEmotion = data.emotion;
+        currentEmotion = data.emotion.toLowerCase();
+        const displayEmotion = currentEmotion.charAt(0).toUpperCase() + currentEmotion.slice(1);
         const emoji = emojiMap[currentEmotion] || "";
-        resultDiv.innerHTML = `${emoji} Your Mood: <strong>${currentEmotion}</strong>`;
+        resultDiv.innerHTML = `${emoji} Your Mood: <strong>${displayEmotion}</strong>`;
 
         showToast(`Emotion Detected: ${currentEmotion}`);
         updateBackgroundAndPlaySong();
@@ -660,19 +661,19 @@
     // Update Background and Play Song with Emotion Transition
     function updateBackgroundAndPlaySong() {
       const backgroundMap = {
-        Happy: "bg-gradient-to-br from-yellow-100 to-orange-400",
-        Sad: "bg-gradient-to-br from-blue-100 to-blue-500",
-        Angry: "bg-gradient-to-br from-red-100 to-red-500",
-        Relaxed: "bg-gradient-to-br from-green-100 to-teal-500",
-        Neutral: "bg-gradient-to-br from-gray-100 to-gray-300",
+        happy: "bg-gradient-to-br from-yellow-100 to-orange-400",
+        sad: "bg-gradient-to-br from-blue-100 to-blue-500",
+        angry: "bg-gradient-to-br from-red-100 to-red-500",
+        relaxed: "bg-gradient-to-br from-green-100 to-teal-500",
+        neutral: "bg-gradient-to-br from-gray-100 to-gray-300",
       };
 
       const emojiMap = {
-        Happy: "😄",
-        Sad: "😢",
-        Angry: "😡",
-        Relaxed: "😌",
-        Neutral: "🙂",
+        happy: "😄",
+        sad: "😢",
+        angry: "😡",
+        relaxed: "😌",
+        neutral: "🙂",
       };
 
       const backgroundEmoji = emojiMap[currentEmotion] || "🎵";
@@ -707,7 +708,7 @@
         return;
       }
 
-      const songPath = `/static/songs/${currentEmotion}/${songList[currentSongIndex]}`;
+      const songPath = `/static/songs/${currentEmotion.toLowerCase()}/${songList[currentSongIndex]}`;
       audioPlayer.src = songPath;
       audioPlayer.load();
       audioPlayer.play();
