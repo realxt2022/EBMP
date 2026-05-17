@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emotion-Based Music Player</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif; /* Modern font for the UI */
+      transition: background-color 0.5s, color 0.5s;
+    }
+    .night {
+      background: linear-gradient(to bottom, #2d2d2d, #1a1a1a);
+      color: #f7fafc;
+    }
+    .pulse-animation:hover {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.1);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    .toggle-slider {
+      position: relative;
+      width: 60px;
+      height: 30px;
+      background-color: #ccc;
+      border-radius: 15px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      background-color: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s;
+    }
+    .toggle-slider.active {
+      background-color: #4caf50;
+    }
+    .toggle-slider.active::before {
+      transform: translateX(30px);
+    }
+    #webcam-container {
+      max-width: 300px; /* Adjusted width */
+      max-height: 200px; /* Adjusted height */
+      z-index: 50;
+      bottom: 30px; /* Move it slightly up */
+      right: 30px; /* Adjust position */
+      border: 2px solid rgba(255, 255, 255, 0.5); /* Border for better visibility */
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+      position: fixed;
+    }
+
+    #webcam-feed {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+    }
+
+    /* Improved HD Emojis */
+    .emoji-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1; /* Ensure emojis stay in the background */
+    }
+
+    .emoji {
+      position: absolute;
+      font-size: 5rem; /* Increased size */
+      font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; /* iOS-style font */
+      opacity: 0.9;
+      animation: floatEmoji 8s linear infinite;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3)); /* Enhanced shadow */
+    }
+
+    @keyframes floatEmoji {
+      0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0.9;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-10vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    /* Smooth Transitions */
+    body {
+      font-family: 'Poppins', sans-serif;
+      transition: background-color 0.5s, color 0.5s;
+    }
+
+    .night {
+      background: linear-gradient(to bottom, #2d2d2d, #1a1a1a);
+      color: #f7fafc;
+    }
+
+    /* Animated Sliders */
+    .progress-container,
+    .volume-slider input[type="range"] {
+      transition: all 0.3s ease;
+    }
+
+    .progress-bar {
+      transition: width 0.3s ease;
+    }
+
+    /* Toast Notifications */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Webcam Button */
+    .webcam-button {
+      background: linear-gradient(to right, #4caf50, #81c784);
+      color: white;
+      font-weight: bold;
+      border-radius: 8px;
+      padding: 10px 20px;
+      transition: transform 0.2s, background-color 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .webcam-button:hover {
+      transform: scale(1.05);
+      background: linear-gradient(to right, #388e3c, #66bb6a);
+    }
+
+    /* Volume Icon */
+    .volume-icon {
+      cursor: pointer;
+      transition: transform 0.2s;
+      width: 30px; /* Reduced size */
+      height: 30px;
+    }
+
+    .volume-icon:hover {
+      transform: scale(1.2);
+    }
+
+    /* Theme Toggle with Images */
+    .theme-toggle {
+      position: relative;
+      width: 60px;
+      height: 30px;
+      background-color: #ccc;
+      border-radius: 15px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 5px;
+    }
+
+    .theme-toggle img {
+      width: 20px;
+      height: 20px;
+    }
+
+    .theme-toggle.active {
+      background-color: #4caf50;
+    }
+
+    /* Control Buttons */
+    .control-btn {
+      background: linear-gradient(to right, #6a11cb, #2575fc);
+      color: white;
+      font-size: 1.2rem;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, background-color 0.3s;
+    }
+
+    .control-btn:hover {
+      transform: scale(1.1);
+      background: linear-gradient(to right, #2575fc, #6a11cb);
+    }
+
+    /* Emotion History Carousel */
+    .emotion-carousel {
+      display: flex;
+      overflow-x: auto;
+      gap: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      margin-top: 20px;
+      scrollbar-width: none; /* Hide scrollbar for modern browsers */
+    }
+
+    .emotion-carousel::-webkit-scrollbar {
+      display: none; /* Hide scrollbar for WebKit browsers */
+    }
+
+    .emotion-item {
+      flex: 0 0 auto;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      font-size: 1rem;
+      color: #333;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s;
+      cursor: grab;
+    }
+
+    .emotion-item:hover {
+      transform: scale(1.1);
+    }
+
+    .emotion-item:active {
+      cursor: grabbing;
+      transform: scale(1.1);
+    }
+
+    .dragging {
+      opacity: 0.5;
+    }
+
+    /* Emotion Change Transition Effect */
+    .emotion-transition {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+
+    .emotion-transition.active {
+      opacity: 1;
+      pointer-events: none;
+    }
+
+    /* Dustbin Styling with Image */
+    .dustbin {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 100px; /* Adjusted size */
+      height: 120px; /* Adjusted size */
+      background: url('https://img.icons8.com/ios-filled/100/000000/trash.png') no-repeat center center;
+      background-size: contain;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      cursor: pointer;
+      z-index: 1000;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+    }
+
+    .dustbin:hover {
+      transform: scale(1.1);
+    }
+
+    .dustbin span {
+      font-size: 1rem;
+      font-weight: bold;
+      color: white;
+      margin-bottom: 5px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .dustbin {
+      display: none; /* Initially hidden */
+    }
+
+    .dustbin.visible {
+      display: flex; /* Show the dustbin when it becomes visible */
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-pink-200 text-gray-800 min-h-screen flex flex-col justify-between relative">
+
+  <!-- Emoji Container -->
+  <div id="emoji-container" class="emoji-container"></div>
+
+  <!-- Header -->
+  <header class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 shadow-md fixed top-0 z-10">
+    <div class="container mx-auto flex justify-between items-center px-4">
+      <h1 class="text-2xl font-bold">🎵 Emotion-Based Music Player</h1>
+      <div class="flex items-center gap-4">
+        <!-- Show Webcam Button -->
+        <button id="show-webcam-button" class="webcam-button">
+          <span id="webcam-button-text">Show Webcam 🎥</span>
+        </button>
+        <!-- Theme Toggle -->
+        <div id="theme-toggle" class="theme-toggle">
+          <img id="light-mode-icon" src="https://img.icons8.com/ios-filled/50/000000/sun--v1.png" alt="Light Mode Icon" />
+          <img id="dark-mode-icon" src="https://img.icons8.com/ios-filled/50/000000/moon-symbol.png" alt="Dark Mode Icon" />
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex flex-col items-center justify-center flex-grow text-center p-4 mt-20">
+    <h1 class="text-4xl font-bold mb-6">🎵 Emotion-Based Music Player</h1>
+
+    <!-- Button with Pulse effect -->
+    <button id="detect-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full transition duration-300">
+      Detect Emotion 🎥
+    </button>
+
+    <!-- Webcam Feed Container -->
+    <div id="webcam-container" class="hidden">
+      <video id="webcam-feed" autoplay></video>
+    </div>
+
+    <!-- Emotion Result and Song -->
+    <div id="result" class="mt-8 text-2xl font-medium"></div>
+
+    <!-- Music Player Layout -->
+    <div id="music-player" class="music-player hidden mt-6">
+      <div id="song-title" class="song-title text-xl font-bold">No song playing</div>
+
+      <!-- Progress bar for the song -->
+      <div class="progress-container mt-4 bg-gray-300 rounded-full h-2 w-full max-w-lg relative">
+        <div id="progress-bar" class="progress-bar bg-blue-500 h-2 w-0 rounded-full"></div>
+        <!-- Music Timers -->
+        <div class="flex justify-between text-sm mt-2">
+          <span id="current-time" class="text-gray-700">0:00</span>
+          <span id="total-time" class="text-gray-700">0:00</span>
+        </div>
+      </div>
+
+      <div class="controls mt-4 flex justify-center gap-4">
+        <button id="prev-song-btn" class="control-btn">⏪</button>
+        <button id="play-pause-btn" class="control-btn">▶️</button>
+        <button id="next-song-btn" class="control-btn">⏩</button>
+      </div>
+
+      <!-- Volume Control -->
+      <div class="volume-slider mt-4 flex items-center gap-2">
+        <img id="volume-icon" src="https://img.icons8.com/ios-filled/50/000000/medium-volume.png" alt="Volume Icon" class="volume-icon" />
+        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" class="w-full max-w-xs" />
+      </div>
+    </div>
+
+    <!-- Emotion History Carousel -->
+    <div id="emotion-carousel" class="emotion-carousel">
+      <!-- Emotion items will be dynamically added here -->
+    </div>
+
+    <!-- Emotion Change Transition Effect -->
+    <div id="emotion-transition" class="emotion-transition"></div>
+
+    <!-- Dustbin -->
+    <div id="dustbin" class="dustbin">
+      <span>2.0</span>
+    </div>
+
+    <!-- Audio Player -->
+    <audio id="audioPlayer" class="hidden">
+      <source id="audioSource" type="audio/mp3">
+      Your browser does not support the audio element.
+    </audio>
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Footer -->
+  <footer class="absolute bottom-4 w-full text-center text-white">
+    <p>Made with ❤️ by Backbenchers</p>
+    <div class="mt-2">
+      <span class="text-blue-400 mx-2">Ashu</span>
+      <span class="text-blue-400 mx-2">H</span>
+      <span class="text-blue-400 mx-2">N</span>
+    </div>
+  </footer>
+
+  <!-- Script -->
+  <script>
+    let isPlaying = false;
+    let currentSongIndex = 0;
+    let currentEmotion = '';
+    const audioPlayer = document.getElementById("audioPlayer");
+    const progressBar = document.getElementById("progress-bar");
+    const songTitle = document.getElementById("song-title");
+    const volumeSlider = document.getElementById("volume-slider");
+    const themeToggle = document.getElementById("theme-toggle");
+
+    const songs = {
+      Happy: ["happy1.mp3", "happy2.mp3", "happy3.mp3"],
+      Sad: ["sad1.mp3", "sad2.mp3", "sad3.mp3"],
+      Angry: ["angry1.mp3", "angry2.mp3", "angry3.mp3"],
+      Relaxed: ["relaxed1.mp3", "relaxed2.mp3", "relaxed3.mp3"]
+    };
+
+    const showWebcamButton = document.getElementById("show-webcam-button");
+    const detectEmotionButton = document.getElementById("detect-button");
+    const webcamContainer = document.getElementById("webcam-container");
+    const webcamFeed = document.getElementById("webcam-feed");
+    let webcamStream = null;
+
+    // Emotion History Carousel
+    const emotionCarousel = document.getElementById("emotion-carousel");
+    const emotionHistory = []; // Array to store past detected emotions
+
+    // Dustbin and Drag-and-Drop Logic
+    const dustbin = document.getElementById("dustbin");
+
+    // Dustbin drop logic
+    dustbin.addEventListener("dragover", (e) => {
+      e.preventDefault(); // Allow dropping
+    });
+
+    dustbin.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const index = e.dataTransfer.getData("text/plain");
+      if (index !== null) {
+        // Remove the emotion from the history and carousel
+        emotionHistory.splice(index, 1);
+        emotionCarousel.children[index].remove();
+        updateEmotionIndexes();
+
+        // Hide the dustbin if the emotion history is empty
+        if (emotionHistory.length === 0) {
+          dustbin.classList.remove("visible");
+        }
+      }
+    });
+
+    // Add drag-and-drop functionality to emotion items
+    function enableDragAndDrop() {
+      const emotionItems = document.querySelectorAll(".emotion-item");
+
+      emotionItems.forEach((item) => {
+        item.setAttribute("draggable", "true");
+
+        // Drag start event
+        item.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("text/plain", e.target.dataset.index);
+          e.target.classList.add("dragging");
+        });
+
+        // Drag end event
+        item.addEventListener("dragend", (e) => {
+          e.target.classList.remove("dragging");
+        });
+      });
+    }
+
+    // Add emotion to history and enable drag-and-drop
+    function addEmotionToHistory(emotion, emoji) {
+      // Show the dustbin after detecting the first emotion
+      if (!dustbin.classList.contains("visible")) {
+        dustbin.classList.add("visible");
+      }
+
+      emotionHistory.push({ emotion, emoji });
+      const emotionItem = document.createElement("div");
+      emotionItem.className = "emotion-item";
+      emotionItem.dataset.index = emotionHistory.length - 1;
+      emotionItem.innerHTML = `${emoji} ${emotion}`;
+      emotionCarousel.appendChild(emotionItem);
+
+      // Limit the number of items in the carousel
+      if (emotionHistory.length > 10) {
+        emotionHistory.shift();
+        emotionCarousel.removeChild(emotionCarousel.firstChild);
+        updateEmotionIndexes();
+      }
+
+      enableDragAndDrop(); // Enable drag-and-drop for the new item
+    }
+
+    // Update data-index attributes after deletion
+    function updateEmotionIndexes() {
+      const emotionItems = document.querySelectorAll(".emotion-item");
+      emotionItems.forEach((item, index) => {
+        item.dataset.index = index;
+      });
+    }
+
+    // Initialize drag-and-drop for existing items
+    enableDragAndDrop();
+
+    function triggerEmotionTransition() {
+      const emotionTransition = document.getElementById("emotion-transition");
+      emotionTransition.classList.add("active");
+      setTimeout(() => {
+        emotionTransition.classList.remove("active");
+      }, 500); // Duration of the transition effect
+    }
+
+    // Toast Notification Function
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.innerText = message;
+      toast.classList.add("show");
+
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3000); // Hide after 3 seconds
+    }
+
+    // Function to start the webcam stream
+    async function startWebcam() {
+      if (!webcamStream) {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            webcamFeed.srcObject = webcamStream;
+          } catch (err) {
+            alert("🚫 Unable to access webcam. Please check permissions.");
+            return false;
+          }
+        } else {
+          alert("🚫 Webcam not supported in this browser.");
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Show Webcam Button Logic (Toggle Preview)
+    showWebcamButton.addEventListener("click", async () => {
+      const webcamStarted = await startWebcam();
+      const webcamButtonText = document.getElementById("webcam-button-text");
+      if (webcamStarted) {
+        if (webcamContainer.classList.contains("hidden")) {
+          webcamContainer.classList.remove("hidden");
+          webcamButtonText.innerText = "Disable Webcam 🚫";
+        } else {
+          webcamContainer.classList.add("hidden");
+          webcamButtonText.innerText = "Show Webcam 🎥";
+        }
+      }
+    });
+
+    // Detect Emotion Button Logic
+    detectEmotionButton.addEventListener("click", async () => {
+      const webcamStarted = await startWebcam();
+      if (webcamStarted) {
+        // Ensure the webcam stream is active in the background
+        if (webcamContainer.classList.contains("hidden")) {
+          console.log("Webcam is running in the background for emotion detection.");
+        }
+        detectEmotion();
+      }
+    });
+
+    // Emotion Detection Logic
+    async function detectEmotion() {
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerText = "Detecting emotion...";
+
+      try {
+        const webcamStarted = await startWebcam();
+        if (!webcamStarted) {
+          resultDiv.innerText = "🚫 Webcam is not active. Please enable the webcam.";
+          return;
+        }
+
+        await new Promise((resolve) => {
+          const checkReady = setInterval(() => {
+            if (webcamFeed.readyState === 4) {
+              clearInterval(checkReady);
+              resolve();
+            }
+          }, 100);
+        });
+
+        const video = webcamFeed;
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d");
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const frameData = canvas.toDataURL("image/jpeg");
+        if (!frameData || frameData === "data:,") {
+          resultDiv.innerText = "🚫 Failed to capture frame. Please try again.";
+          return;
+        }
+
+        const res = await fetch("/get_emotion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ frame: frameData }),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          resultDiv.innerText = `😔 ${data.error}`;
+          return;
+        }
+
+        const emojiMap = {
+          Happy: "😄",
+          Sad: "😢",
+          Angry: "😡",
+          Relaxed: "😌",
+          Neutral: "🙂",
+        };
+
+        currentEmotion = data.emotion;
+        const emoji = emojiMap[currentEmotion] || "";
+        resultDiv.innerHTML = `${emoji} Your Mood: <strong>${currentEmotion}</strong>`;
+
+        showToast(`Emotion Detected: ${currentEmotion}`);
+        updateBackgroundAndPlaySong();
+      } catch (err) {
+        resultDiv.innerText = "⚠️ Error detecting emotion.";
+      }
+    }
+
+    // Update Background and Play Song with Emotion Transition
+    function updateBackgroundAndPlaySong() {
+      const backgroundMap = {
+        Happy: "bg-gradient-to-br from-yellow-100 to-orange-400",
+        Sad: "bg-gradient-to-br from-blue-100 to-blue-500",
+        Angry: "bg-gradient-to-br from-red-100 to-red-500",
+        Relaxed: "bg-gradient-to-br from-green-100 to-teal-500",
+        Neutral: "bg-gradient-to-br from-gray-100 to-gray-300",
+      };
+
+      const emojiMap = {
+        Happy: "😄",
+        Sad: "😢",
+        Angry: "😡",
+        Relaxed: "😌",
+        Neutral: "🙂",
+      };
+
+      const backgroundEmoji = emojiMap[currentEmotion] || "🎵";
+      document.body.className = `min-h-screen flex flex-col justify-between relative ${backgroundMap[currentEmotion] || "bg-gradient-to-br from-blue-100 to-pink-200"}`;
+
+      const emojiContainer = document.getElementById("emoji-container");
+      emojiContainer.innerHTML = "";
+      for (let i = 0; i < 15; i++) {
+        const emoji = document.createElement("div");
+        emoji.className = "emoji";
+        emoji.style.left = `${Math.random() * 100}vw`;
+        emoji.style.fontSize = `${2 + Math.random() * 4}rem`;
+        emoji.style.animationDuration = `${6 + Math.random() * 4}s`;
+        emoji.textContent = backgroundEmoji;
+        emojiContainer.appendChild(emoji);
+      }
+
+      // Add emotion to history
+      addEmotionToHistory(currentEmotion, backgroundEmoji);
+
+      // Trigger emotion transition effect
+      triggerEmotionTransition();
+
+      playSong();
+    }
+
+    // Play Song with Toast Notification
+    function playSong() {
+      const songList = songs[currentEmotion];
+      if (!songList || songList.length === 0) {
+        songTitle.innerText = "No songs available for this emotion.";
+        return;
+      }
+
+      const songPath = `/static/songs/${currentEmotion}/${songList[currentSongIndex]}`;
+      audioPlayer.src = songPath;
+      audioPlayer.load();
+      audioPlayer.play();
+      isPlaying = true;
+
+      songTitle.innerText = `Now Playing: ${songList[currentSongIndex]}`;
+      document.getElementById("music-player").classList.remove("hidden");
+
+      showToast(`Now Playing: ${songList[currentSongIndex]}`);
+    }
+
+    // Volume Icon Logic
+    const volumeIcon = document.getElementById("volume-icon");
+    volumeIcon.addEventListener("click", () => {
+      if (audioPlayer.muted) {
+        audioPlayer.muted = false;
+        volumeIcon.src = "https://img.icons8.com/ios-filled/50/000000/medium-volume.png";
+      } else {
+        audioPlayer.muted = true;
+        volumeIcon.src = "https://img.icons8.com/ios-filled/50/000000/mute.png";
+      }
+    });
+
+    // Theme Toggle Logic
+    themeToggle.addEventListener("click", () => {
+      document.body.classList.toggle("night");
+      themeToggle.classList.toggle("active");
+      const isNightMode = document.body.classList.contains("night");
+      const lightModeIcon = document.getElementById("light-mode-icon");
+      const darkModeIcon = document.getElementById("dark-mode-icon");
+
+      if (isNightMode) {
+        lightModeIcon.style.display = "none";
+        darkModeIcon.style.display = "block";
+        showToast("Dark Mode Activated");
+      } else {
+        lightModeIcon.style.display = "block";
+        darkModeIcon.style.display = "none";
+        showToast("Light Mode Activated");
+      }
+    });
+
+    document.getElementById("play-pause-btn").addEventListener("click", () => {
+      if (isPlaying) {
+        audioPlayer.pause();
+        document.getElementById("play-pause-btn").innerText = "▶️";
+      } else {
+        audioPlayer.play();
+        document.getElementById("play-pause-btn").innerText = "⏸️";
+      }
+      isPlaying = !isPlaying;
+    });
+
+    document.getElementById("prev-song-btn").addEventListener("click", () => {
+      if (currentSongIndex > 0) {
+        currentSongIndex--;
+        playSong();
+      }
+    });
+
+    document.getElementById("next-song-btn").addEventListener("click", () => {
+      const songList = songs[currentEmotion];
+      if (currentSongIndex < songList.length - 1) {
+        currentSongIndex++;
+        playSong();
+      }
+    });
+
+    volumeSlider.addEventListener("input", () => {
+      audioPlayer.volume = volumeSlider.value;
+    });
+
+    audioPlayer.addEventListener("timeupdate", () => {
+      const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+      progressBar.style.width = `${progress}%`;
+
+      // Update current time and total time
+      const currentTimeSpan = document.getElementById("current-time");
+      const totalTimeSpan = document.getElementById("total-time");
+      const currentMinutes = Math.floor(audioPlayer.currentTime / 60);
+      const currentSeconds = Math.floor(audioPlayer.currentTime % 60);
+      const totalMinutes = Math.floor(audioPlayer.duration / 60);
+      const totalSeconds = Math.floor(audioPlayer.duration % 60);
+      currentTimeSpan.innerText = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')}`;
+      totalTimeSpan.innerText = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+    });
+
+    const progressContainer = document.querySelector(".progress-container");
+
+    // Seek functionality: Update song playback time when the user clicks on the progress bar
+    progressContainer.addEventListener("click", (e) => {
+      const containerWidth = progressContainer.offsetWidth; // Get the width of the progress bar container
+      const clickX = e.offsetX; // Get the X-coordinate of the click relative to the container
+      const duration = audioPlayer.duration; // Get the total duration of the song
+
+      // Calculate the new playback time based on the click position
+      const newTime = (clickX / containerWidth) * duration;
+      audioPlayer.currentTime = newTime; // Update the current playback time
+    });
+  </script>
+</body>
+</html>
