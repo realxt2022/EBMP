@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Emotion-Based Music Player</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -15,6 +16,12 @@
       background: linear-gradient(to bottom, #2d2d2d, #1a1a1a);
       color: #f7fafc;
     }
+    .song-title-text { color: #000; }
+    .song-artist { color: #111; }
+    body.night .song-title-text { color: #fff; }
+    body.night .song-artist { color: #fff; }
+    #current-time, #total-time { color: #000; }
+    body.night #current-time, body.night #total-time { color: #fff; }
     .pulse-animation:hover {
       animation: pulse 1.5s ease-in-out infinite;
     }
@@ -362,22 +369,25 @@
 
     <!-- Music Player Layout -->
     <div id="music-player" class="music-player hidden mt-6">
-      <div id="song-title" class="song-title text-xl font-bold">No song playing</div>
+      <div id="song-title" class="song-title text-xl font-bold">Now Playing:</div>
+      <div id="song-title-text" class="song-title-text text-lg font-semibold mt-2">No song playing</div>
+      <div id="song-artist" class="song-artist text-sm mt-1"></div>
 
       <!-- Progress bar for the song -->
       <div class="progress-container mt-4 bg-gray-300 rounded-full h-2 w-full max-w-lg relative">
         <div id="progress-bar" class="progress-bar bg-blue-500 h-2 w-0 rounded-full"></div>
-        <!-- Music Timers -->
-        <div class="flex justify-between text-sm mt-2">
-          <span id="current-time" class="text-gray-700">0:00</span>
-          <span id="total-time" class="text-gray-700">0:00</span>
-        </div>
+      </div>
+      <!-- Music Timers -->
+      <div class="flex justify-between text-sm mt-2 max-w-lg w-full">
+        <span id="current-time" class="text-gray-700">0:00</span>
+        <span class="text-gray-500">/</span>
+        <span id="total-time" class="text-gray-700">0:00</span>
       </div>
 
       <div class="controls mt-4 flex justify-center gap-4">
-        <button id="prev-song-btn" class="control-btn">⏪</button>
-        <button id="play-pause-btn" class="control-btn">▶️</button>
-        <button id="next-song-btn" class="control-btn">⏩</button>
+        <button id="prev-song-btn" class="control-btn" title="Previous track">⏪</button>
+        <button id="play-pause-btn" class="control-btn" title="Play/Pause">⏸️</button>
+        <button id="next-song-btn" class="control-btn" title="Next track">⏩</button>
       </div>
 
       <!-- Volume Control -->
@@ -405,6 +415,10 @@
       <source id="audioSource" type="audio/mp3">
       Your browser does not support the audio element.
     </audio>
+    <!-- YouTube Player Container (positioned off-screen but properly sized) -->
+    <div id="youtube-embed-container" style="position:fixed;left:-9999px;top:-9999px;width:400px;height:300px;">
+      <iframe id="youtubeEmbed" width="400" height="300" allow="autoplay; encrypted-media" allowfullscreen frameborder="0"></iframe>
+    </div>
   </main>
 
   <!-- Toast Notification -->
@@ -421,22 +435,29 @@
   </footer>
 
   <!-- Script -->
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script>
     let isPlaying = false;
-    let currentSongIndex = 0;
     let currentEmotion = '';
+    let currentPlaylist = [];
+    let currentPlaylistIndex = 0;
+    let currentTrack = null;
+    let playbackTimer = null;
+    let audioPlayPromise = null;
     const audioPlayer = document.getElementById("audioPlayer");
+    const youtubeEmbed = document.getElementById("youtubeEmbed");
+    let youtubePlayer = null;
+    let youtubeReady = false;
+    let pendingVideoId = null;
+    const playPauseBtn = document.getElementById("play-pause-btn");
     const progressBar = document.getElementById("progress-bar");
-    const songTitle = document.getElementById("song-title");
+    const songTitleText = document.getElementById("song-title-text");
+    const songArtist = document.getElementById("song-artist");
     const volumeSlider = document.getElementById("volume-slider");
     const themeToggle = document.getElementById("theme-toggle");
+    const prevButton = document.getElementById("prev-song-btn");
+    const nextButton = document.getElementById("next-song-btn");
 
-    const songs = {
-      happy: ["happy1.mp3", "happy2.m4a"],
-      sad: ["sad1.mp3", "sad2.m4a", "sad3.m4a", "sad4.mp3", "sad5.mp3", "sad6.mp3", "sad7.mp3"],
-      angry: ["angry1.mp3", "angry2.mp3"],
-      relaxed: ["neutral1.mp3", "neutral2.mp3", "neutral3.mp3", "neutral4.mp3", "neutral5.mp3", "neutral6.mp3"]
-    };
 
     const showWebcamButton = document.getElementById("show-webcam-button");
     const detectEmotionButton = document.getElementById("detect-button");
@@ -546,6 +567,273 @@
       }, 3000); // Hide after 3 seconds
     }
 
+    function onYouTubeIframeAPIReady() {
+      console.log('YouTube Iframe API Ready called');
+      youtubePlayer = new YT.Player("youtubeEmbed", {
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+        },
+        events: {
+          onReady: function () {
+            console.log('YouTube Player onReady fired');
+            youtubeReady = true;
+            if (pendingVideoId) {
+              youtubePlayer.loadVideoById(pendingVideoId);
+              try {
+                youtubePlayer.setVolume(Math.round(volumeSlider.value * 100));
+              } catch (e) {}
+              youtubePlayer.playVideo();
+              startPlaybackTimer();
+              pendingVideoId = null;
+            }
+          },
+          onError: function (event) {
+            console.error('YouTube Player error:', event.data);
+            showToast('YouTube player error. Attempting audio fallback.');
+          },
+          onStateChange: function (event) {
+            console.log('YouTube Player state changed:', event.data);
+            if (event.data === YT.PlayerState.PLAYING) {
+              isPlaying = true;
+              playPauseBtn.innerText = "⏸️";
+              try {
+                youtubePlayer.setVolume(Math.round(volumeSlider.value * 100));
+              } catch (e) {}
+              // Start the timer and wait for duration to become available
+              startPlaybackTimer();
+              waitForYouTubeDuration(15000).then((dur) => {
+                if (dur && dur > 0) {
+                  updateTimeDisplay(youtubePlayer.getCurrentTime(), dur);
+                  updateProgressBar(youtubePlayer.getCurrentTime(), dur);
+                }
+              });
+            } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+              isPlaying = false;
+              playPauseBtn.innerText = "▶️";
+              clearPlaybackTimer();
+            }
+          },
+        },
+      });
+    }
+
+    // If the YT API script loads but doesn't call the global ready handler, try to init player.
+    function initYouTubeIfNeeded() {
+      console.log('initYouTubeIfNeeded called, youtubePlayer=' + (youtubePlayer ? 'exists' : 'null'));
+      if (youtubePlayer) {
+        console.log('YouTube player already initialized');
+        return;
+      }
+      if (window.YT && window.YT.Player) {
+        try {
+          console.log('Calling onYouTubeIframeAPIReady manually');
+          onYouTubeIframeAPIReady();
+        } catch (e) {
+          console.warn('YT init failed:', e);
+        }
+      } else {
+        console.log('YT API not ready, retrying in 500ms');
+        setTimeout(initYouTubeIfNeeded, 500);
+      }
+    }
+
+    // Kick off initialization attempt
+    window.addEventListener('load', () => {
+      console.log('Window load event, initializing YouTube if needed');
+      initYouTubeIfNeeded();
+    });
+    // Also try immediately in case the script is already loaded
+    setTimeout(initYouTubeIfNeeded, 100);
+
+    function updateTimeDisplay(current, total) {
+      const currentMinutes = Math.floor(current / 60) || 0;
+      const currentSeconds = Math.floor(current % 60) || 0;
+      const totalMinutes = Math.floor(total / 60) || 0;
+      const totalSeconds = Math.floor(total % 60) || 0;
+      document.getElementById("current-time").innerText = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')}`;
+      document.getElementById("total-time").innerText = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+    }
+
+    function updateProgressBar(current, total) {
+      if (!total || total <= 0) return;
+      const progress = (current / total) * 100;
+      progressBar.style.width = `${progress}%`;
+    }
+
+    function clearPlaybackTimer() {
+      if (playbackTimer) {
+        clearInterval(playbackTimer);
+        playbackTimer = null;
+      }
+    }
+
+    function startPlaybackTimer() {
+      clearPlaybackTimer();
+      playbackTimer = setInterval(() => {
+        if (currentTrack && currentTrack.videoId && youtubeReady && youtubePlayer && youtubePlayer.getCurrentTime) {
+          const current = youtubePlayer.getCurrentTime();
+          const total = youtubePlayer.getDuration();
+          if (current >= 0) {
+            updateTimeDisplay(current, total);
+            if (total > 0) {
+              updateProgressBar(current, total);
+            }
+          }
+        } else if (audioPlayer.duration > 0) {
+          updateTimeDisplay(audioPlayer.currentTime, audioPlayer.duration);
+          updateProgressBar(audioPlayer.currentTime, audioPlayer.duration);
+        }
+      }, 500);
+    }
+
+    // Poll for YouTube duration until it's available or timeout
+    function waitForYouTubeDuration(timeout = 10000) {
+      return new Promise((resolve) => {
+        const start = Date.now();
+        const t = setInterval(() => {
+          try {
+            const d = youtubePlayer.getDuration();
+            if (d && d > 0) {
+              clearInterval(t);
+              resolve(d);
+              return;
+            }
+          } catch (e) {}
+          if (Date.now() - start > timeout) {
+            clearInterval(t);
+            resolve(null);
+          }
+        }, 400);
+      });
+    }
+
+    function safePlayAudio() {
+      if (audioPlayPromise) {
+        return audioPlayPromise;
+      }
+      audioPlayPromise = audioPlayer.play();
+      audioPlayPromise.catch((err) => {
+        if (err && err.name !== 'AbortError') {
+          console.warn('Audio playback failed:', err);
+          showToast('Audio playback failed: ' + (err.message || err.name));
+        }
+      }).finally(() => {
+        audioPlayPromise = null;
+      });
+      return audioPlayPromise;
+    }
+
+    async function attemptFetchFallback(source) {
+      try {
+        showToast('Attempting fetch fallback for audio...');
+        console.log('Fetching audio URL for fallback:', source);
+        const resp = await fetch(source, { mode: 'cors' });
+        if (!resp.ok) throw new Error('Fetch failed: ' + resp.status);
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        console.log('Fetched blob URL, switching audio src to blob URL');
+        audioPlayer.src = blobUrl;
+        audioPlayer.load();
+        try {
+          audioPlayer.muted = false;
+          audioPlayer.volume = parseFloat(volumeSlider.value) || 1;
+        } catch (e) {}
+        await safePlayAudio();
+        showToast('Playback started via fetch fallback.');
+        return true;
+      } catch (err) {
+        console.error('Fetch fallback failed:', err);
+        showToast('Fetch fallback failed. See console.');
+        return false;
+      }
+    }
+
+    function playTrack(index) {
+      if (!currentPlaylist || currentPlaylist.length === 0) {
+        showToast('No track loaded.');
+        return;
+      }
+      if (index < 0) {
+        index = currentPlaylist.length - 1;
+      }
+      if (index >= currentPlaylist.length) {
+        index = 0;
+      }
+      currentPlaylistIndex = index;
+      const track = currentPlaylist[currentPlaylistIndex];
+      currentTrack = track;
+      console.log('playTrack called', { index, track, youtubeReady, pendingVideoId });
+      songTitleText.innerText = track.title || 'Unknown title';
+      songArtist.innerText = track.artist ? `Artist: ${track.artist}` : '';
+      document.getElementById("music-player").classList.remove("hidden");
+
+      clearPlaybackTimer();
+      if (track.videoId) {
+        // Prefer the YouTube JS API. If it's not ready, schedule a short fallback to the iframe autoplay URL.
+        if (youtubeReady) {
+          try {
+            youtubePlayer.loadVideoById(track.videoId);
+            youtubePlayer.setVolume(Math.round(volumeSlider.value * 100));
+          } catch (e) {}
+          youtubePlayer.playVideo();
+          // wait for duration and update displays
+          waitForYouTubeDuration().then((dur) => {
+            if (dur && dur > 0) {
+              updateTimeDisplay(youtubePlayer.getCurrentTime(), dur);
+              updateProgressBar(youtubePlayer.getCurrentTime(), dur);
+            }
+          });
+        } else {
+          // If the YouTube API isn't ready yet, keep the video id pending and notify the user.
+          pendingVideoId = track.videoId;
+          showToast('Initializing YouTube player; timers will appear once ready.');
+          // don't set iframe src as fallback to avoid 0:00 placeholders; when API becomes ready, onReady will loadVideoById
+        }
+        return;
+      }
+
+      const source = track.path || track.url || track.musicUrl;
+      if (!source) {
+        showToast('Unable to play this track.');
+        return;
+      }
+      if (audioPlayer.src !== source) {
+        audioPlayer.src = source;
+        audioPlayer.crossOrigin = 'anonymous';
+        audioPlayer.load();
+      }
+      // Ensure audio is unmuted and volume is applied before attempting to play
+      try {
+        audioPlayer.muted = false;
+        audioPlayer.volume = parseFloat(volumeSlider.value) || 1;
+      } catch (e) {}
+
+      console.log('Attempting to play audio source:', source);
+      showToast('Loading audio...');
+
+      safePlayAudio()
+        .then(() => {
+          isPlaying = true;
+          playPauseBtn.innerText = '⏸️';
+          startPlaybackTimer();
+        })
+        .catch(async (err) => {
+          console.error('Audio play failed in playTrack:', err);
+          // Try fetch-based fallback to work around CORS or streaming issues
+          const ok = await attemptFetchFallback(source);
+          if (ok) return;
+          showToast('Audio playback failed. Check console.');
+          isPlaying = false;
+          playPauseBtn.innerText = '▶️';
+        });
+    }
+
     // Function to start the webcam stream
     async function startWebcam() {
       if (!webcamStream) {
@@ -633,8 +921,10 @@
         });
         const data = await res.json();
 
-        if (data.error) {
-          resultDiv.innerText = `😔 ${data.error}`;
+        if (!res.ok || data.error) {
+          const serverMessage = data?.error || 'Unknown server error during emotion detection.';
+          console.error('Emotion API error:', serverMessage);
+          resultDiv.innerText = `😔 ${serverMessage}`;
           return;
         }
 
@@ -652,9 +942,21 @@
         resultDiv.innerHTML = `${emoji} Your Mood: <strong>${displayEmotion}</strong>`;
 
         showToast(`Emotion Detected: ${currentEmotion}`);
-        updateBackgroundAndPlaySong();
+        if (data.tracks && data.tracks.length > 0) {
+          currentPlaylist = data.tracks;
+          currentPlaylistIndex = 0;
+          playTrack(currentPlaylistIndex);
+          showToast(`Now Playing: ${currentPlaylist[currentPlaylistIndex].title}`);
+        } else {
+          currentPlaylist = [];
+          currentPlaylistIndex = 0;
+          document.getElementById('result').innerText = 'No track available for this emotion.';
+          showToast('No track available');
+        }
       } catch (err) {
-        resultDiv.innerText = "⚠️ Error detecting emotion.";
+        console.error('Emotion detection failed:', err);
+        const message = err?.message || err || 'Unknown error';
+        resultDiv.innerText = `⚠️ Error detecting emotion: ${message}`;
       }
     }
 
@@ -697,27 +999,7 @@
       // Trigger emotion transition effect
       triggerEmotionTransition();
 
-      playSong();
-    }
-
-    // Play Song with Toast Notification
-    function playSong() {
-      const songList = songs[currentEmotion];
-      if (!songList || songList.length === 0) {
-        songTitle.innerText = "No songs available for this emotion.";
-        return;
-      }
-
-      const songPath = `/static/songs/${currentEmotion.toLowerCase()}/${songList[currentSongIndex]}`;
-      audioPlayer.src = songPath;
-      audioPlayer.load();
-      audioPlayer.play();
-      isPlaying = true;
-
-      songTitle.innerText = `Now Playing: ${songList[currentSongIndex]}`;
-      document.getElementById("music-player").classList.remove("hidden");
-
-      showToast(`Now Playing: ${songList[currentSongIndex]}`);
+      // Remote-only mode: playback is handled from the server response.
     }
 
     // Volume Icon Logic
@@ -751,43 +1033,74 @@
       }
     });
 
-    document.getElementById("play-pause-btn").addEventListener("click", () => {
-      if (isPlaying) {
-        audioPlayer.pause();
-        document.getElementById("play-pause-btn").innerText = "▶️";
+    playPauseBtn.addEventListener("click", () => {
+      if (!currentPlaylist || currentPlaylist.length === 0) {
+        showToast('No track loaded.');
+        return;
+      }
+
+      // YouTube remote track handling
+      if (currentTrack && currentTrack.videoId && youtubeReady) {
+        if (isPlaying) {
+          youtubePlayer.pauseVideo();
+        } else {
+          youtubePlayer.playVideo();
+        }
+        return;
+      }
+
+      // Local audio handling (should only be used for API-provided streams)
+      if (audioPlayer.paused || audioPlayer.ended) {
+        safePlayAudio()
+          .then(() => {
+            isPlaying = true;
+            playPauseBtn.innerText = '⏸️';
+            startPlaybackTimer();
+          })
+          .catch((err) => {
+            console.error('Play failed:', err);
+            showToast('Unable to start audio playback.');
+            isPlaying = false;
+            playPauseBtn.innerText = '▶️';
+          });
       } else {
-        audioPlayer.play();
-        document.getElementById("play-pause-btn").innerText = "⏸️";
-      }
-      isPlaying = !isPlaying;
-    });
-
-    document.getElementById("prev-song-btn").addEventListener("click", () => {
-      if (currentSongIndex > 0) {
-        currentSongIndex--;
-        playSong();
+        audioPlayer.pause();
+        isPlaying = false;
+        playPauseBtn.innerText = '▶️';
+        clearPlaybackTimer();
       }
     });
 
-    document.getElementById("next-song-btn").addEventListener("click", () => {
-      const songList = songs[currentEmotion];
-      if (currentSongIndex < songList.length - 1) {
-        currentSongIndex++;
-        playSong();
+    prevButton.addEventListener("click", () => {
+      if (!currentPlaylist || currentPlaylist.length <= 1) {
+        showToast('No previous song available.');
+        return;
       }
+      const prevIndex = (currentPlaylistIndex - 1 + currentPlaylist.length) % currentPlaylist.length;
+      playTrack(prevIndex);
+    });
+
+    nextButton.addEventListener("click", () => {
+      if (!currentPlaylist || currentPlaylist.length <= 1) {
+        showToast('No next song available.');
+        return;
+      }
+      const nextIndex = (currentPlaylistIndex + 1) % currentPlaylist.length;
+      playTrack(nextIndex);
     });
 
     volumeSlider.addEventListener("input", () => {
       audioPlayer.volume = volumeSlider.value;
+      if (currentTrack && currentTrack.videoId && youtubeReady && youtubePlayer && youtubePlayer.setVolume) {
+        youtubePlayer.setVolume(Math.round(volumeSlider.value * 100));
+      }
     });
 
     // Update total time when metadata is loaded
     audioPlayer.addEventListener("loadedmetadata", () => {
       if (!isFinite(audioPlayer.duration) || audioPlayer.duration <= 0) return;
-      const totalMinutes = Math.floor(audioPlayer.duration / 60);
-      const totalSeconds = Math.floor(audioPlayer.duration % 60);
-      const totalTimeSpan = document.getElementById("total-time");
-      totalTimeSpan.innerText = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+      updateTimeDisplay(audioPlayer.currentTime, audioPlayer.duration);
+      updateProgressBar(audioPlayer.currentTime, audioPlayer.duration);
     });
 
     audioPlayer.addEventListener("timeupdate", () => {
@@ -806,13 +1119,33 @@
       totalTimeSpan.innerText = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
     });
 
+    audioPlayer.addEventListener("ended", () => {
+      clearPlaybackTimer();
+      if (!currentPlaylist || currentPlaylist.length <= 1) return;
+      const nextIndex = (currentPlaylistIndex + 1) % currentPlaylist.length;
+      playTrack(nextIndex);
+    });
+
     audioPlayer.addEventListener("error", () => {
       showToast("Failed to load audio.");
       document.getElementById("music-player").classList.add("hidden");
       isPlaying = false;
+      document.getElementById("play-pause-btn").innerText = "▶️";
     });
 
     const progressContainer = document.querySelector(".progress-container");
+
+    audioPlayer.addEventListener("play", () => {
+      isPlaying = true;
+      playPauseBtn.innerText = "⏸️";
+      startPlaybackTimer();
+    });
+
+    audioPlayer.addEventListener("pause", () => {
+      isPlaying = false;
+      playPauseBtn.innerText = "▶️";
+      clearPlaybackTimer();
+    });
 
     // Seek functionality: Update song playback time when the user clicks on the progress bar
     progressContainer.addEventListener("click", (e) => {

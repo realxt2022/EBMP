@@ -10,12 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggle = document.getElementById('themeToggle');
   let isPlaying = false;
   let currentEmotion = '';
-  let songs = {
-    'happy': ['happy1.mp3', 'happy2.m4a'],
-    'sad': ['sad1.mp3', 'sad2.m4a', 'sad3.m4a', 'sad4.mp3', 'sad5.mp3', 'sad6.mp3', 'sad7.mp3'],
-    'relaxed': ['neutral1.mp3', 'neutral2.mp3', 'neutral3.mp3', 'neutral4.mp3', 'neutral5.mp3', 'neutral6.mp3'],
-    'angry': ['angry1.mp3', 'angry2.mp3']
-  };
+  let isRemote = false;
+  let remoteInfo = null;
   let currentSong = 0;
 
   detectBtn.addEventListener('click', async () => {
@@ -24,11 +20,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/get_emotion');
       const data = await response.json();
 
-      if (data.emotion) {
+      if (data.error) {
+        emotionBox.innerText = data.error;
+        showToast(data.error);
+      } else if (data.emotion) {
         currentEmotion = data.emotion.toLowerCase();
         const displayEmotion = currentEmotion.charAt(0).toUpperCase() + currentEmotion.slice(1);
         emotionBox.innerText = `${displayEmotion} 😃`;
-        playSong(currentEmotion);
+        if (data.path) {
+          // Remote or provided path
+          isRemote = !!data.is_remote;
+          remoteInfo = data;
+          audioPlayer.src = data.path;
+          nowPlaying.innerText = `🎵 ${data.song}${data.artist ? ' - ' + data.artist : ''}`;
+          audioPlayer.play();
+          isPlaying = true;
+        } else {
+          isRemote = false;
+          remoteInfo = null;
+          emotionBox.innerText = 'No remote track available for this emotion.';
+          showToast('No remote track available');
+        }
       } else {
         emotionBox.innerText = 'Unable to detect emotion. Please try again.';
       }
@@ -38,19 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  function playSong(emotion) {
-    const songList = songs[emotion];
-    if (!songList || songList.length === 0) {
-      emotionBox.innerText = 'No songs found for this emotion.';
-      return;
-    }
-
-    currentSong = 0; // Reset to first song of the emotion
-    audioPlayer.src = `/static/songs/${emotion}/${songList[currentSong]}`;
-    nowPlaying.innerText = `🎵 ${songList[currentSong]}`;
-    audioPlayer.play();
-    isPlaying = true;
-  }
+  // Local playback removed; app uses remote API-only tracks. If remote playback
+  // is not available the backend returns an error which is shown to the user.
 
   playPauseBtn.addEventListener('click', () => {
     if (isPlaying) {
@@ -64,21 +65,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   prevBtn.addEventListener('click', () => {
-    if (currentSong > 0) {
-      currentSong--;
-      audioPlayer.src = `/static/songs/${currentEmotion}/${songs[currentEmotion][currentSong]}`;
-      nowPlaying.innerText = `🎵 ${songs[currentEmotion][currentSong]}`;
-      audioPlayer.play();
-    }
+    showToast('Remote-only mode: prev not available');
   });
 
   nextBtn.addEventListener('click', () => {
-    if (currentSong < songs[currentEmotion].length - 1) {
-      currentSong++;
-      audioPlayer.src = `/static/songs/${currentEmotion}/${songs[currentEmotion][currentSong]}`;
-      nowPlaying.innerText = `🎵 ${songs[currentEmotion][currentSong]}`;
-      audioPlayer.play();
-    }
+    showToast('Remote-only mode: next not available');
   });
 
   volumeSlider.addEventListener('input', () => {
